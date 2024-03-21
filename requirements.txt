@@ -1,0 +1,2 @@
+aiogram==2.22.2
+Requests==2.31.0
