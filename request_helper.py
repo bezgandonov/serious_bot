@@ -3,13 +3,18 @@ import json
 import datetime, time
 from config.tokens import DADATA_API_KEY
 
-def rq_dadata(user_query):
-    url = 'http://suggestions.dadata.ru/suggestions/api/4_1/rs/suggest/party'
+def rq_dadata(user_query, search_okved: bool = False):
+    url = None
+    body = None
+    if not search_okved:
+        url = 'http://suggestions.dadata.ru/suggestions/api/4_1/rs/suggest/party'
+        body = json.dumps({'query': user_query, 'count': 11})
+    else:
+        url = 'http://suggestions.dadata.ru/suggestions/api/4_1/rs/suggest/okved2'
+        body = json.dumps({'query': user_query})
     headers = {'Content-Type': 'application/json',
                'Accept': 'application/json',
                'Authorization': f'Token {DADATA_API_KEY}'}
-    body = json.dumps({'query': user_query, 'count': 11})
-
     response = requests.post(url = url, data = body, headers = headers)
 
     return response.json()
@@ -57,6 +62,9 @@ def convert_to_text_main(data):
         ogrn_val=f"ОГРН: {data['data']['ogrn']}"
         value_list.append(ogrn_val)
 
+        ogrn_val=f"КПП: {data['data']['kpp']}"
+        value_list.append(ogrn_val)
+
         today = datetime.date.fromtimestamp(time.time())
         reg_date = datetime.date.fromtimestamp((data['data']['state']['registration_date']/1000.0))
         age = int(today.strftime(format='%Y')) - int(reg_date.strftime(format='%Y'))
@@ -64,9 +72,23 @@ def convert_to_text_main(data):
         age_and_date_val=f"Возраст: {age} лет (дата регистрации: {reg_date.strftime(format='%d.%m.%Y')})"
         value_list.append(age_and_date_val)
 
+        value_list.append('')
+
+        okved = rq_dadata(data['data']['okved'], True)
+
+        okved_val=f"Основной код деятельности: {data['data']['okved']}, {okved['suggestions'][0]['data']['name']}"
+        value_list.append(okved_val)
+
+        value_list.append('')
+
         if data['data']['management'] != None:
             management_val = f"Руководитель: {data['data']['management']['name']}\nДолжность руководителя: {data['data']['management']['post']}"
             value_list.append(management_val)
+
+        value_list.append('')
+
+        status_val=f"Статус: {data['data']['state']['status']}"
+        value_list.append(status_val)
 
     elif data['data']['type'] == 'INDIVIDUAL':
         name_val=f"<b>{data['data']['name']['full']}</b>"
@@ -74,8 +96,26 @@ def convert_to_text_main(data):
 
         inn_val=f"ИНН: {data['data']['inn']}"
         value_list.append(inn_val)
+
         ogrnip_val=f"ОГРНИП: {data['data']['ogrn']}"
         value_list.append(ogrnip_val)
+
+        reg_date = datetime.date.fromtimestamp((data['data']['state']['registration_date']/1000.0))
+
+        age_and_date_val=f"Дата регистрации: {reg_date.strftime(format='%d.%m.%Y')}"
+        value_list.append(age_and_date_val)
+
+        value_list.append('')
+
+        okved = rq_dadata(data['data']['okved'], True)
+
+        okved_val=f"Основной код деятельности: {data['data']['okved']}, {okved['suggestions'][0]['data']['name']}"
+        value_list.append(okved_val)
+
+        value_list.append('')
+
+        status_val=f"Статус: {data['data']['state']['status']}"
+        value_list.append(status_val)
 
     for i in value_list:
         value_text=value_text+i+'\n'
