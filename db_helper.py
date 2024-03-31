@@ -141,5 +141,17 @@ def get_template_cards(template_id, db_name=default_db_name, table_name=default_
     return all_templates
 
 
+def get_file_path(template_id, db_name=default_db_name, table_name=default_table_name_2):
+    con = sqlite3.connect(db_name)
+    cur = con.cursor()
+
+    command = f'SELECT file_path FROM {table_name} WHERE id = {template_id}'
+    cur.execute(command)
+    file_path = cur.fetchall()
+
+    con.close()
+    return file_path
+
+
 if __name__ == '__main__':
     create_tables()

@@ -2,9 +2,9 @@ from aiogram import Dispatcher, Bot, executor, types
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.dispatcher import FSMContext
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
-from config.tokens import BOT_API
+from config.tokens import BOT_API, YOOKASSA_TOKEN
 from config import messages
-from db_helper import create_tables, is_admin_check, get_basic_templates, get_template_cards, delete_template
+from db_helper import create_tables, is_admin_check, get_basic_templates, get_template_cards, delete_template, get_file_path
 from db_helper import add_template as add_template_to_db
 from db_helper import edit_template as edit_template_in_db
 from request_helper import get_all
@@ -141,6 +141,31 @@ async def choose_template_fr(callback_query: types.CallbackQuery):
     else:
         await bot.send_message(callback_query.from_user.id, 'Не найдено')
     await bot.delete_message(chat_id = callback_query.message.chat.id, message_id=callback_query.message.message_id)
+
+
+@dp.callback_query_handler(lambda query: query.data.startswith('buy_template'))
+async def buy_template(callback_query: types.CallbackQuery):
+    splited_callback = callback_query.data.split(':')
+
+    template_info = get_template_cards(int(splited_callback[1]))
+    name, price, desc, _, template_path = template_info[0]
+    print(template_path)
+    price = int(str(price) + '00')
+
+    await bot.send_invoice(chat_id=callback_query.from_user.id, title=name, description=desc, payload=f'template_proceed_pay:{template_path}', provider_token=YOOKASSA_TOKEN, currency='RUB', start_parameter='live', prices=[{"label": "Руб", "amount": price}])
+    await bot.delete_message(chat_id = callback_query.message.chat.id, message_id=callback_query.message.message_id)
+
+
+@dp.pre_checkout_query_handler()
+async def process_pre_checkout_query(pre_checkout_query: types.PreCheckoutQuery):
+    await bot.answer_pre_checkout_query(pre_checkout_query.id, ok=True)
+
+@dp.message_handler(content_types=[types.ContentType.SUCCESSFUL_PAYMENT])
+async def process_pay(message: types.Message):
+    if message.successful_payment.invoice_payload.startswith('template_proceed_pay'):
+        with open(message.successful_payment.invoice_payload.split(':')[1], 'rb') as file:
+            await bot.send_document(message.from_user.id, document=file, caption='Оплата прошла успешна. Спасибо за покупку.')
+    await bot.delete_message(chat_id = message.chat.id, message_id=message.message_id)
 
 
 @dp.callback_query_handler(lambda query: query.data.startswith('change_page'))
@@ -383,12 +408,15 @@ async def process_price(message: types.Message, state: FSMContext):
         await AddTemplate.Price.set()
         return
 
-    async with state.proxy() as data:
-        data['price'] = message.text
-    await message.answer('Введите описание шаблона:', reply_markup=markup)
-    await bot.delete_message(chat_id = message.chat.id, message_id=message.message_id-1)
-    await bot.delete_message(chat_id = message.chat.id, message_id=message.message_id)
-    await AddTemplate.Description.set()
+    if int(message.text) >= 60:
+        async with state.proxy() as data:
+            data['price'] = message.text
+        await message.answer('Введите описание шаблона:', reply_markup=markup)
+        await bot.delete_message(chat_id = message.chat.id, message_id=message.message_id-1)
+        await bot.delete_message(chat_id = message.chat.id, message_id=message.message_id)
+        await AddTemplate.Description.set()
+    else:
+        await bot.send_message(message.from_user.id, 'Цена должна быть не меньше 60ти рублей и не больше 15 миллиардов рублей')
 
 
 @dp.message_handler(content_types='any', state=AddTemplate.Description)
