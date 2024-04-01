@@ -149,11 +149,9 @@ async def buy_template(callback_query: types.CallbackQuery):
 
     template_info = get_template_cards(int(splited_callback[1]))
     name, price, desc, _, template_path = template_info[0]
-    print(template_path)
     price = int(str(price) + '00')
 
     await bot.send_invoice(chat_id=callback_query.from_user.id, title=name, description=desc, payload=f'template_proceed_pay:{template_path}', provider_token=YOOKASSA_TOKEN, currency='RUB', start_parameter='live', prices=[{"label": "Руб", "amount": price}])
-    await bot.delete_message(chat_id = callback_query.message.chat.id, message_id=callback_query.message.message_id)
 
 
 @dp.pre_checkout_query_handler()
@@ -164,7 +162,7 @@ async def process_pre_checkout_query(pre_checkout_query: types.PreCheckoutQuery)
 async def process_pay(message: types.Message):
     if message.successful_payment.invoice_payload.startswith('template_proceed_pay'):
         with open(message.successful_payment.invoice_payload.split(':')[1], 'rb') as file:
-            await bot.send_document(message.from_user.id, document=file, caption='Оплата прошла успешна. Спасибо за покупку.')
+            await bot.send_document(message.from_user.id, document=file, caption='Оплата прошла успешно. Спасибо за покупку.')
     await bot.delete_message(chat_id = message.chat.id, message_id=message.message_id)
 
 
